@@ -8,6 +8,56 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: alpine:latest
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          apk update
+          apk add --no-cache \
+            cmake make git \
+            gcc g++ \
+            musl-dev \
+            python3 \
+            bash
+
+      - name: Checkout box64
+        uses: actions/checkout@v4
+        with:
+          repository: ptitSeb/box64
+          ref: main
+
+      - name: Build box64 (musl aarch64, Cortex-A53 / SD625)
+        run: |
+          mkdir build && cd build
+          cmake .. \
+            -DARM_DYNAREC=ON \
+            -DGENERIC_ARM=1 \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          make -j$(nproc)
+
+      - name: Check binary
+        run: |
+          file build/box64
+          ls -lh build/box64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: box64-musl-aarch64-sd625
+          path: build/box64
+          retention-days: 30
+name: Build box64 for postmarketOS (musl aarch64)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout box64
@@ -15,33 +65,7 @@ jobs:
         with:
           repository: ptitSeb/box64
           ref: main
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake make git \
-            gcc-aarch64-linux-gnu \
-            g++-aarch64-linux-gnu \
-            musl-tools wget
-
-      - name: Download musl aarch64 cross toolchain
-        run: |
-          wget -q https://musl.cc/aarch64-linux-musl-cross.tgz
-          tar -xf aarch64-linux-musl-cross.tgz
-          echo "$PWD/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
-
-      - name: Build box64 (musl aarch64, Cortex-A53)
-        run: |
-          mkdir build && cd build
-          cmake .. \
-            -DCMAKE_SYSTEM_NAME=Linux \
-            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-            -DCMAKE_C_COMPILER=aarch64-linux-musl-gcc \
-            -DCMAKE_CXX_COMPILER=aarch64-linux-musl-g++ \
-            -DARM_DYNAREC=ON \
-            -DGENERIC_ARM=1 \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+MAKE_BUILD_TYPE=RelWithDebInfo \
             -DCMAKE_EXE_LINKER_FLAGS="-static"
           make -j$(nproc)
 
