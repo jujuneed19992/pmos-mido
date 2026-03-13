@@ -1,0 +1,50 @@
+name: Build box64 for postmarketOS (musl aarch64)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:latest
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          apk update
+          apk add --no-cache \
+            cmake make git \
+            gcc g++ \
+            musl-dev \
+            python3 \
+            bash
+
+      - name: Checkout box64
+        uses: actions/checkout@v4
+        with:
+          repository: ptitSeb/box64
+          ref: main
+
+      - name: Build box64 (musl aarch64, Cortex-A53 / SD625)
+        run: |
+          mkdir build && cd build
+          cmake .. \
+            -DARM_DYNAREC=ON \
+            -DGENERIC_ARM=1 \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          make -j$(nproc)
+
+      - name: Check binary
+        run: |
+          file build/box64
+          ls -lh build/box64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: box64-musl-aarch64-sd625
+          path: build/box64
+          retention-days: 30
